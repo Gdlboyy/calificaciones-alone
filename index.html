@@ -289,7 +289,6 @@
       <span>Iniciar sesión con Google</span>
     </button>
     <p class="gate-status" id="gateStatus"></p>
-    <div id="gsiFallback" hidden></div>
   </div>
 
   <div id="app" hidden>
@@ -356,9 +355,11 @@
   const OBTENER_ALUMNOS_URL = 'https://n8n.2-24-70-17.sslip.io/webhook/obtener-alumnos';
   const WEBHOOK_URL = 'https://n8n.2-24-70-17.sslip.io/webhook/generar-reporte';
   const TOKEN_KEY = 'alone_id_token';
+  const EMAIL_KEY = 'alone_email';
 
   let STUDENTS = [];
-  let idToken = sessionStorage.getItem(TOKEN_KEY) || null;
+  let authToken = sessionStorage.getItem(TOKEN_KEY) || null;
+  let authEmail = sessionStorage.getItem(EMAIL_KEY) || '';
 
   const gate = document.getElementById('gate');
   const gateStatus = document.getElementById('gateStatus');
@@ -375,75 +376,84 @@
     }[c]));
   }
 
-  function decodeEmail(token){
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return payload.email || '';
-    } catch {
-      return '';
-    }
-  }
-
   function mostrarApp(){
     gate.hidden = true;
     app.hidden = false;
-    sessionEmail.textContent = decodeEmail(idToken);
+    sessionEmail.textContent = authEmail;
   }
 
   function mostrarGate(mensaje){
-    idToken = null;
+    authToken = null;
+    authEmail = '';
     sessionStorage.removeItem(TOKEN_KEY);
+    sessionStorage.removeItem(EMAIL_KEY);
     app.hidden = true;
     gate.hidden = false;
+    gsiCustomBtn.disabled = false;
     gateStatus.className = 'gate-status' + (mensaje ? ' err' : '');
     gateStatus.textContent = mensaje || '';
   }
 
-  function onCredentialResponse(response){
-    idToken = response.credential;
-    sessionStorage.setItem(TOKEN_KEY, idToken);
+  const gsiCustomBtn = document.getElementById('gsiCustomBtn');
+  let tokenClient = null;
+
+  function gateError(mensaje){
+    gsiCustomBtn.disabled = false;
+    gateStatus.className = 'gate-status err';
+    gateStatus.textContent = mensaje;
+  }
+
+  async function onTokenResponse(resp){
+    if (!resp || !resp.access_token) {
+      gateError('Google no devolvió una sesión válida. Intenta de nuevo.');
+      return;
+    }
+    authToken = resp.access_token;
+    try {
+      const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { 'Authorization': 'Bearer ' + authToken },
+      });
+      const u = await r.json();
+      authEmail = u.email || '';
+    } catch {
+      authEmail = '';
+    }
+    sessionStorage.setItem(TOKEN_KEY, authToken);
+    sessionStorage.setItem(EMAIL_KEY, authEmail);
+    gsiCustomBtn.disabled = false;
     mostrarApp();
     cargarAlumnos();
   }
 
-  const gsiCustomBtn = document.getElementById('gsiCustomBtn');
-  const gsiFallback = document.getElementById('gsiFallback');
-  let gsiReady = false;
-
-  function mostrarFallback(){
-    // Último recurso: si el One Tap de Google no se pudo mostrar (cookies de
-    // terceros bloqueadas, modo incógnito estricto, etc.), dibujamos el botón
-    // real de Google para que de todos modos se pueda iniciar sesión.
-    if (gsiFallback.hidden) {
-      google.accounts.id.renderButton(gsiFallback, { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill' });
-      gsiFallback.hidden = false;
-    }
-    gsiCustomBtn.hidden = true;
-  }
-
   gsiCustomBtn.addEventListener('click', () => {
-    if (!gsiReady) return;
+    if (!tokenClient) {
+      gateError('Aún se está cargando el inicio de sesión de Google. Espera un segundo e intenta otra vez.');
+      return;
+    }
     gateStatus.className = 'gate-status';
-    gateStatus.textContent = '';
-    google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-        gateStatus.className = 'gate-status err';
-        gateStatus.textContent = 'No se pudo abrir el inicio de sesión automático. Usa el botón de Google de abajo.';
-        mostrarFallback();
-      }
-    });
+    gateStatus.textContent = 'Abriendo la ventana de Google…';
+    gsiCustomBtn.disabled = true;
+    // prompt: 'select_account' obliga a elegir cuenta siempre, para que nunca
+    // continúe solo con una sesión vieja o equivocada del navegador.
+    tokenClient.requestAccessToken({ prompt: 'select_account' });
   });
 
   window.addEventListener('load', () => {
-    if (window.google?.accounts?.id) {
-      google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredentialResponse, auto_select: false });
-      google.accounts.id.disableAutoSelect();
-      gsiReady = true;
+    if (window.google?.accounts?.oauth2) {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/userinfo.email',
+        callback: onTokenResponse,
+        error_callback: (err) => {
+          gateError(err?.type === 'popup_closed'
+            ? 'Cerraste la ventana de Google antes de terminar. Intenta de nuevo.'
+            : 'No se pudo abrir la ventana de Google. Revisa que el navegador no esté bloqueando ventanas emergentes.');
+        },
+      });
     } else {
-      gateStatus.className = 'gate-status err';
-      gateStatus.textContent = 'No se pudo cargar el inicio de sesión de Google. Revisa tu conexión y recarga la página.';
+      gateError('No se pudo cargar el inicio de sesión de Google. Revisa tu conexión y recarga la página.');
     }
-    if (idToken) {
+    if (authToken) {
       mostrarApp();
       cargarAlumnos();
     } else {
@@ -452,10 +462,9 @@
   });
 
   document.getElementById('signOutBtn').addEventListener('click', () => {
-    if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
-    gsiCustomBtn.hidden = false;
-    gsiFallback.hidden = true;
-    gsiFallback.innerHTML = '';
+    // Ojo: NO usar google.accounts.oauth2.revoke() aquí. Revocar el permiso
+    // afectaría también a las credenciales de Google que usa n8n, porque
+    // comparten el mismo cliente OAuth. Basta con borrar la sesión local.
     mostrarGate();
   });
 
@@ -463,7 +472,7 @@
     roster.innerHTML = '<div class="row"><div class="name">Cargando alumnos&hellip;</div></div>';
     try {
       const res = await fetch(OBTENER_ALUMNOS_URL, {
-        headers: { 'Authorization': 'Bearer ' + idToken },
+        headers: { 'Authorization': 'Bearer ' + authToken },
         cache: 'no-store',
       });
       const data = await res.json();
@@ -545,7 +554,7 @@
     try {
       const res = await fetch(WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
         body: JSON.stringify({ nombre: s.name }),
       });
       if (res.status === 401){
