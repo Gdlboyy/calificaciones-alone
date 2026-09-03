@@ -1,0 +1,274 @@
+{
+  "name": "Reportes ALONE - WhatsApp",
+  "nodes": [
+    {
+      "id": "a1b2c3d4-0001-4aaa-8aaa-000000000001",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generar-reporte",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook Generar Reporte",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1180, 0],
+      "webhookId": "generar-reporte-alone"
+    },
+    {
+      "id": "a1b2c3d4-0002-4aaa-8aaa-000000000002",
+      "parameters": {
+        "documentId": { "__rl": true, "value": "SHEET_ID_AQUI", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Calificaciones", "mode": "name" },
+        "filtersUI": {
+          "values": [
+            { "lookupColumn": "ALUMNO", "lookupValue": "={{ $json.body.nombre }}" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Leer Calificaciones pendientes",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-960, 0]
+    },
+    {
+      "id": "a1b2c3d4-0003-4aaa-8aaa-000000000003",
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => !r.REPORTADO);\nreturn [{ json: { pendientes: rows, nombre: $('Webhook Generar Reporte').first().json.body.nombre } }];"
+      },
+      "name": "Filtrar no reportadas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-740, 0]
+    },
+    {
+      "id": "a1b2c3d4-0004-4aaa-8aaa-000000000004",
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+                "conditions": [
+                  { "leftValue": "={{ $json.pendientes.length }}", "rightValue": 0, "operator": { "type": "number", "operation": "equals" } }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "sin_pendientes"
+            },
+            {
+              "conditions": {
+                "options": { "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+                "conditions": [
+                  { "leftValue": "={{ $json.pendientes.length }}", "rightValue": 5, "operator": { "type": "number", "operation": "gt" } }
+                ],
+                "combinator": "and"
+              },
+              "outputKey": "demasiadas"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "ok" }
+      },
+      "name": "Validar cantidad",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [-520, 0]
+    },
+    {
+      "id": "a1b2c3d4-0005-4aaa-8aaa-000000000005",
+      "parameters": {
+        "documentId": { "__rl": true, "value": "SHEET_ID_AQUI", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Alumnos", "mode": "name" },
+        "filtersUI": {
+          "values": [
+            { "lookupColumn": "NOMBRE", "lookupValue": "={{ $json.nombre }}" }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Leer WhatsApp del alumno",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-300, 40]
+    },
+    {
+      "id": "a1b2c3d4-0006-4aaa-8aaa-000000000006",
+      "parameters": {
+        "conditions": {
+          "options": { "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.WHATSAPP }}",
+              "operator": { "type": "string", "operation": "isEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "¿Sin WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-80, 40]
+    },
+    {
+      "id": "a1b2c3d4-0007-4aaa-8aaa-000000000007",
+      "parameters": {
+        "url": "=https://slides.googleapis.com/v1/presentations/PRESENTATION_ID_AQUI:batchUpdate",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSlidesOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { requests: [ { duplicateObject: { objectId: 'SLIDE_ID_AQUI' } } ] } }}"
+      },
+      "name": "Duplicar diapositiva plantilla",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [140, 0]
+    },
+    {
+      "id": "a1b2c3d4-0008-4aaa-8aaa-000000000008",
+      "parameters": {
+        "jsCode": "const pendientes = $('Filtrar no reportadas').first().json.pendientes;\nconst newSlideId = $json.replies[0].duplicateObject.objectId;\nconst nombre = $('Filtrar no reportadas').first().json.nombre;\nconst reqs = [{ replaceAllText: { containsText: { text: '{{NOMBRE}}' }, replaceText: nombre, pageObjectIds: [newSlideId] } }];\nfor (let i = 0; i < 5; i++) {\n  reqs.push({ replaceAllText: { containsText: { text: `{{MOD${i+1}}}` }, replaceText: pendientes[i] ? String(pendientes[i].MODULO) : '', pageObjectIds: [newSlideId] } });\n  reqs.push({ replaceAllText: { containsText: { text: `{{CAL${i+1}}}` }, replaceText: pendientes[i] ? String(pendientes[i].CALIFICACION) : '', pageObjectIds: [newSlideId] } });\n}\nreturn [{ json: { requests: reqs, newSlideId } }];"
+      },
+      "name": "Armar reemplazos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [360, 0]
+    },
+    {
+      "id": "a1b2c3d4-0009-4aaa-8aaa-000000000009",
+      "parameters": {
+        "url": "=https://slides.googleapis.com/v1/presentations/PRESENTATION_ID_AQUI:batchUpdate",
+        "method": "POST",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSlidesOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { requests: $json.requests } }}"
+      },
+      "name": "Rellenar datos en la diapositiva",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [580, 0]
+    },
+    {
+      "id": "a1b2c3d4-0010-4aaa-8aaa-000000000010",
+      "parameters": {
+        "url": "=https://www.googleapis.com/drive/v3/files/{{ $('Armar reemplazos').first().json.newSlideId }}/export?mimeType=image/png",
+        "method": "GET",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDriveOAuth2Api",
+        "options": { "response": { "response": { "responseFormat": "file" } } }
+      },
+      "name": "Exportar diapositiva como PNG",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [800, 0]
+    },
+    {
+      "id": "a1b2c3d4-0011-4aaa-8aaa-000000000011",
+      "parameters": {
+        "url": "={{ $env.EVOLUTION_API_URL }}/message/sendMedia/{{ $env.EVOLUTION_INSTANCE }}",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { number: $('Leer WhatsApp del alumno').first().json.WHATSAPP, mediatype: 'image', caption: 'Reporte de calificaciones de ' + $('Filtrar no reportadas').first().json.nombre, media: $binary.data.data } }}"
+      },
+      "name": "Enviar por WhatsApp (Evolution API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1020, 0]
+    },
+    {
+      "id": "a1b2c3d4-0012-4aaa-8aaa-000000000012",
+      "parameters": {
+        "documentId": { "__rl": true, "value": "SHEET_ID_AQUI", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Calificaciones", "mode": "name" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": { "REPORTADO": "={{ $now.toISO() }}" },
+          "matchingColumns": ["ALUMNO", "MODULO"]
+        },
+        "options": {}
+      },
+      "name": "Marcar como REPORTADO",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1240, 0]
+    },
+    {
+      "id": "a1b2c3d4-0013-4aaa-8aaa-000000000013",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, message: 'Enviado por WhatsApp' } }}"
+      },
+      "name": "Responder éxito",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1460, 0]
+    },
+    {
+      "id": "a1b2c3d4-0014-4aaa-8aaa-000000000014",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, message: 'Sin calificaciones nuevas para reportar' } }}"
+      },
+      "name": "Responder sin pendientes",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-520, 220]
+    },
+    {
+      "id": "a1b2c3d4-0015-4aaa-8aaa-000000000015",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, message: 'Hay más de 5 calificaciones pendientes — revisa el Sheet' } }}"
+      },
+      "name": "Responder demasiadas",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-520, 320]
+    },
+    {
+      "id": "a1b2c3d4-0016-4aaa-8aaa-000000000016",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, message: 'Este alumno no tiene WhatsApp registrado en la pestaña Alumnos' } }}"
+      },
+      "name": "Responder sin WhatsApp",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-80, 220]
+    }
+  ],
+  "connections": {
+    "Webhook Generar Reporte": { "main": [[{ "node": "Leer Calificaciones pendientes", "type": "main", "index": 0 }]] },
+    "Leer Calificaciones pendientes": { "main": [[{ "node": "Filtrar no reportadas", "type": "main", "index": 0 }]] },
+    "Filtrar no reportadas": { "main": [[{ "node": "Validar cantidad", "type": "main", "index": 0 }]] },
+    "Validar cantidad": {
+      "main": [
+        [{ "node": "Responder sin pendientes", "type": "main", "index": 0 }],
+        [{ "node": "Responder demasiadas", "type": "main", "index": 0 }],
+        [{ "node": "Leer WhatsApp del alumno", "type": "main", "index": 0 }]
+      ]
+    },
+    "Leer WhatsApp del alumno": { "main": [[{ "node": "¿Sin WhatsApp?", "type": "main", "index": 0 }]] },
+    "¿Sin WhatsApp?": {
+      "main": [
+        [{ "node": "Responder sin WhatsApp", "type": "main", "index": 0 }],
+        [{ "node": "Duplicar diapositiva plantilla", "type": "main", "index": 0 }]
+      ]
+    },
+    "Duplicar diapositiva plantilla": { "main": [[{ "node": "Armar reemplazos", "type": "main", "index": 0 }]] },
+    "Armar reemplazos": { "main": [[{ "node": "Rellenar datos en la diapositiva", "type": "main", "index": 0 }]] },
+    "Rellenar datos en la diapositiva": { "main": [[{ "node": "Exportar diapositiva como PNG", "type": "main", "index": 0 }]] },
+    "Exportar diapositiva como PNG": { "main": [[{ "node": "Enviar por WhatsApp (Evolution API)", "type": "main", "index": 0 }]] },
+    "Enviar por WhatsApp (Evolution API)": { "main": [[{ "node": "Marcar como REPORTADO", "type": "main", "index": 0 }]] },
+    "Marcar como REPORTADO": { "main": [[{ "node": "Responder éxito", "type": "main", "index": 0 }]] }
+  }
+}
