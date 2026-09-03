@@ -51,11 +51,10 @@ export function calificacionesFromCSV(text) {
   return items;
 }
 
-export function studentsFromCSVs(alumnosText, calificacionesText) {
-  const alumnos = alumnosFromCSV(alumnosText);
-  const pendientes = calificacionesFromCSV(calificacionesText);
+function studentsFromEntries(alumnosList, pendientesList) {
+  const alumnos = new Map(alumnosList.map(a => [a.name, a]));
 
-  for (const item of pendientes) {
+  for (const item of pendientesList) {
     if (!alumnos.has(item.alumno)) {
       alumnos.set(item.alumno, { name: item.alumno, wa: null });
     }
@@ -64,11 +63,32 @@ export function studentsFromCSVs(alumnosText, calificacionesText) {
   const students = Array.from(alumnos.values()).map(a => ({
     name: a.name,
     wa: a.wa,
-    items: pendientes.filter(p => p.alumno === a.name).map(p => ({ m: p.m, c: p.c })),
+    items: pendientesList.filter(p => p.alumno === a.name).map(p => ({ m: p.m, c: p.c })),
   }));
 
   students.sort((a, b) => a.name.localeCompare(b.name, 'es'));
   return students;
+}
+
+export function studentsFromCSVs(alumnosText, calificacionesText) {
+  const alumnos = Array.from(alumnosFromCSV(alumnosText).values());
+  const pendientes = calificacionesFromCSV(calificacionesText);
+  return studentsFromEntries(alumnos, pendientes);
+}
+
+export function studentsFromApiRows(alumnosRows, calificacionesRows) {
+  const alumnos = alumnosRows
+    .map(r => ({ name: (r.NOMBRE || '').trim(), wa: (r.WHATSAPP || '').trim() || null }))
+    .filter(a => a.name);
+  const pendientes = calificacionesRows
+    .map(r => ({
+      alumno: (r.ALUMNO || '').trim(),
+      m: (r.MODULO || '').trim(),
+      c: (r.CALIFICACION || '').trim(),
+      reportado: (r.REPORTADO || '').trim(),
+    }))
+    .filter(r => r.alumno && r.m && !r.reportado);
+  return studentsFromEntries(alumnos, pendientes);
 }
 
 export function calClass(c) {

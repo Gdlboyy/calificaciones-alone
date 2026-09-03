@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCSV, alumnosFromCSV, calificacionesFromCSV, studentsFromCSVs, calClass, filterStudents } from './reportes.mjs';
+import { parseCSV, alumnosFromCSV, calificacionesFromCSV, studentsFromCSVs, studentsFromApiRows, calClass, filterStudents } from './reportes.mjs';
 
 const ALUMNOS_CSV = 'NOMBRE,WHATSAPP\nSofía Ramírez Tello,5233112233\nKevin Alexander Ruiz,\n';
 const CALIF_CSV =
@@ -49,6 +49,23 @@ test('calClass clasifica aprobatoria, no aprobatoria y NP', () => {
   assert.equal(calClass('8'), 'aprob');
   assert.equal(calClass('5.9'), 'noaprob');
   assert.equal(calClass('NP'), 'np');
+});
+
+test('studentsFromApiRows arma la misma forma que studentsFromCSVs, a partir de filas JSON del webhook obtener-alumnos', () => {
+  const alumnosRows = [
+    { NOMBRE: 'Sofía Ramírez Tello', WHATSAPP: '5233112233' },
+    { NOMBRE: 'Kevin Alexander Ruiz', WHATSAPP: '' },
+  ];
+  const calificacionesRows = [
+    { ALUMNO: 'Sofía Ramírez Tello', MODULO: '14', CALIFICACION: '8.5', REPORTADO: '' },
+    { ALUMNO: 'Sofía Ramírez Tello', MODULO: '10', CALIFICACION: '9', REPORTADO: '2026-08-01' },
+    { ALUMNO: 'Kevin Alexander Ruiz', MODULO: '7', CALIFICACION: '5', REPORTADO: '' },
+  ];
+  const students = studentsFromApiRows(alumnosRows, calificacionesRows);
+  assert.deepEqual(students.map(s => s.name), ['Kevin Alexander Ruiz', 'Sofía Ramírez Tello']);
+  const sofia = students.find(s => s.name === 'Sofía Ramírez Tello');
+  assert.equal(sofia.wa, '5233112233');
+  assert.deepEqual(sofia.items, [{ m: '14', c: '8.5' }]);
 });
 
 test('filterStudents combina texto, módulo y calificación', () => {
