@@ -370,6 +370,20 @@
   const fCal = document.getElementById('fCal');
   const q = document.getElementById('q');
 
+  // n8n a veces responde con cuerpo vacío si un nodo truena a medio camino.
+  // Sin esto, el navegador lanza un "Unexpected end of JSON input" incomprensible.
+  async function leerJson(res){
+    const texto = await res.text();
+    if (!texto.trim()) {
+      throw new Error('La automatización no devolvió respuesta (revisa la ejecución en n8n)');
+    }
+    try {
+      return JSON.parse(texto);
+    } catch {
+      throw new Error('La automatización devolvió una respuesta que no se entiende');
+    }
+  }
+
   function esc(value){
     return String(value).replace(/[&<>"']/g, c => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -475,7 +489,7 @@
         headers: { 'Authorization': 'Bearer ' + authToken },
         cache: 'no-store',
       });
-      const data = await res.json();
+      const data = await leerJson(res);
       if (!res.ok || !data.ok) {
         mostrarGate(data.message || 'Tu sesión no es válida o no está autorizada. Inicia sesión de nuevo.');
         return;
@@ -561,7 +575,7 @@
         mostrarGate('Tu sesión expiró o no está autorizada. Inicia sesión de nuevo.');
         return;
       }
-      const data = await res.json();
+      const data = await leerJson(res);
       if (data.ok){
         if (data.imagenBase64) descargarImagen(data.imagenBase64, data.nombreArchivo);
         btn.classList.add('sent');
