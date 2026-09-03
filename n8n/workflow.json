@@ -233,7 +233,31 @@
       "name": "Enviar por WhatsApp (Evolution API)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1280, 0]
+      "position": [1280, 260],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 3000
+    },
+    {
+      "id": "a1b2c3d4-0042-4aaa-8aaa-000000000042",
+      "parameters": {
+        "jsCode": "return [{ json: { whatsappEnviado: false } }];"
+      },
+      "name": "Registrar intento de WhatsApp fallido",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 260]
+    },
+    {
+      "id": "a1b2c3d4-0040-4aaa-8aaa-000000000040",
+      "parameters": {
+        "jsCode": "const nombre = $('Filtrar no reportadas').first().json.nombre;\nconst pendientes = $('Filtrar no reportadas').first().json.pendientes;\nreturn pendientes.map(p => ({ json: { ALUMNO: nombre, MODULO: p.m } }));"
+      },
+      "name": "Preparar filas a marcar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1280, 120]
     },
     {
       "id": "a1b2c3d4-0012-4aaa-8aaa-000000000012",
@@ -250,18 +274,28 @@
       "name": "Marcar como REPORTADO",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [1500, 0]
+      "position": [1500, 120]
+    },
+    {
+      "id": "a1b2c3d4-0041-4aaa-8aaa-000000000041",
+      "parameters": {
+        "jsCode": "const nombre = $('Filtrar no reportadas').first().json.nombre;\nconst imagenBase64 = $binary.data.data;\nconst archivo = 'reporte-' + nombre.replace(/[^a-zA-Z0-9]+/g, '-') + '.png';\nreturn [{ json: { ok: true, message: 'Reporte generado, descárgalo desde el navegador', imagenBase64, nombreArchivo: archivo } }];"
+      },
+      "name": "Preparar respuesta con imagen",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1280, 0]
     },
     {
       "id": "a1b2c3d4-0013-4aaa-8aaa-000000000013",
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { ok: true, message: 'Enviado por WhatsApp' } }}"
+        "responseBody": "={{ $json }}"
       },
       "name": "Responder éxito",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [1720, 0]
+      "position": [1500, 0]
     },
     {
       "id": "a1b2c3d4-0014-4aaa-8aaa-000000000014",
@@ -438,9 +472,23 @@
     "Duplicar diapositiva plantilla": { "main": [[{ "node": "Armar reemplazos", "type": "main", "index": 0 }]] },
     "Armar reemplazos": { "main": [[{ "node": "Rellenar datos en la diapositiva", "type": "main", "index": 0 }]] },
     "Rellenar datos en la diapositiva": { "main": [[{ "node": "Exportar diapositiva como PNG", "type": "main", "index": 0 }]] },
-    "Exportar diapositiva como PNG": { "main": [[{ "node": "Enviar por WhatsApp (Evolution API)", "type": "main", "index": 0 }]] },
-    "Enviar por WhatsApp (Evolution API)": { "main": [[{ "node": "Marcar como REPORTADO", "type": "main", "index": 0 }]] },
-    "Marcar como REPORTADO": { "main": [[{ "node": "Responder éxito", "type": "main", "index": 0 }]] },
+    "Exportar diapositiva como PNG": {
+      "main": [
+        [
+          { "node": "Preparar filas a marcar", "type": "main", "index": 0 },
+          { "node": "Preparar respuesta con imagen", "type": "main", "index": 0 },
+          { "node": "Enviar por WhatsApp (Evolution API)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Preparar filas a marcar": { "main": [[{ "node": "Marcar como REPORTADO", "type": "main", "index": 0 }]] },
+    "Preparar respuesta con imagen": { "main": [[{ "node": "Responder éxito", "type": "main", "index": 0 }]] },
+    "Enviar por WhatsApp (Evolution API)": {
+      "main": [
+        [],
+        [{ "node": "Registrar intento de WhatsApp fallido", "type": "main", "index": 0 }]
+      ]
+    },
 
     "Webhook Obtener Alumnos": { "main": [[{ "node": "Leer Staff Autorizado (O)", "type": "main", "index": 0 }]] },
     "Leer Staff Autorizado (O)": { "main": [[{ "node": "Validar sesión (O)", "type": "main", "index": 0 }]] },

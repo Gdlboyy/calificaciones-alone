@@ -38,3 +38,14 @@ Ambas exigen una sesión de Google válida y autorizada antes de hacer cualquier
 - **"¿Autorizado? (G)" / "¿Autorizado? (O)"**: la salida `true` (rama 0) continúa el flujo normal; la salida `false` (rama 1) va al nodo de respuesta 401.
 - Revisa en n8n que las ramas de ambos `IF` queden conectadas en ese orden al importar, ya que el orden visual puede variar según la versión de n8n.
 - Los nodos "Validar sesión (G)" y "Validar sesión (O)" llaman a `https://oauth2.googleapis.com/tokeninfo` para verificar el token que manda la página — no requieren credencial propia, es una llamada pública de Google.
+
+## Descarga y WhatsApp son independientes
+
+A partir de "Exportar diapositiva como PNG", el flujo se divide en **tres ramas que corren en paralelo** y no dependen unas de otras:
+
+1. **"Preparar filas a marcar" → "Marcar como REPORTADO"** — marca las calificaciones ya procesadas.
+2. **"Preparar respuesta con imagen" → "Responder éxito"** — regresa la imagen (en base64, campo `imagenBase64`) a la página, que la descarga automáticamente en el navegador de quien dio clic. Esta rama **no depende de que WhatsApp funcione**.
+3. **"Enviar por WhatsApp (Evolution API)"** — intenta el envío; tiene `onError: continueErrorOutput` con 2 reintentos, así que si falla (por ejemplo porque aún no configuras Evolution API) no detiene ni la descarga ni el marcado como reportado. El error, si ocurre, termina en el nodo "Registrar intento de WhatsApp fallido" (por ahora no notifica a nadie — es intencional mientras WhatsApp esté pendiente de activar).
+
+Esto significa que puedes probar la generación y descarga del reporte **sin tener Evolution API configurada todavía** — esa rama simplemente fallará en silencio hasta que la actives.
+
