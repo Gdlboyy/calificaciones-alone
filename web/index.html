@@ -288,42 +288,54 @@
 
 </div>
 
-<script>
-  const STUDENTS = [
-    { name:'Sofía Ramírez Tello',    wa:'52 33 1122 3344', items:[{m:14,c:8.5},{m:15,c:9}],                        outcome:'ok'       },
-    { name:'Jonathan Iván Delgado',  wa:'52 33 5566 7788', items:[{m:3,c:7},{m:4,c:6},{m:5,c:9},{m:6,c:8}],        outcome:'ok'       },
-    { name:'Ana Paola Guzmán Ley',   wa:'52 33 9900 1122', items:[{m:22,c:10}],                                    outcome:'ok'       },
-    { name:'Diego Hernández Cobos',  wa:'52 33 4455 6677', items:[],                                               outcome:'none'     },
-    { name:'Kevin Alexander Ruiz',   wa:null,              items:[{m:7,c:5},{m:8,c:'NP'},{m:9,c:6}],               outcome:'no-wa'    },
-    { name:'Valeria Núñez Preciado', wa:'52 33 2233 4455', items:[{m:1,c:6},{m:2,c:7},{m:3,c:5},{m:4,c:8},{m:5,c:9},{m:6,c:'NP'}], outcome:'too-many' },
-  ];
+<script type="module">
+  import { studentsFromCSVs, filterStudents, calClass } from './lib/reportes.mjs';
 
+  const ALUMNOS_CSV_URL = 'PENDIENTE_URL_ALUMNOS';
+  const CALIFICACIONES_CSV_URL = 'PENDIENTE_URL_CALIFICACIONES';
+  const WEBHOOK_URL = 'PENDIENTE_URL_WEBHOOK';
+
+  let STUDENTS = [];
   const roster = document.getElementById('roster');
   const fMod = document.getElementById('fMod');
   const fCal = document.getElementById('fCal');
   const q = document.getElementById('q');
 
-  const allMods = Array.from(new Set(STUDENTS.flatMap(s => s.items.map(i => i.m)))).sort((a,b)=>a-b);
-  fMod.insertAdjacentHTML('beforeend', allMods.map(m => `<option value="${m}">Módulo ${m}</option>`).join(''));
+  async function cargarAlumnos(){
+    roster.innerHTML = '<div class="row"><div class="name">Cargando alumnos&hellip;</div></div>';
+    try {
+      const [alumnosRes, califRes] = await Promise.all([
+        fetch(ALUMNOS_CSV_URL + '&_=' + Date.now(), { cache: 'no-store' }),
+        fetch(CALIFICACIONES_CSV_URL + '&_=' + Date.now(), { cache: 'no-store' }),
+      ]);
+      if (!alumnosRes.ok || !califRes.ok) throw new Error('No se pudo leer el Google Sheets.');
+      const [alumnosText, califText] = await Promise.all([alumnosRes.text(), califRes.text()]);
+      STUDENTS = studentsFromCSVs(alumnosText, califText);
+      poblarFiltroModulo();
+      render();
+    } catch (err) {
+      roster.innerHTML = `<div class="row"><div class="name">No se pudo cargar el Sheets: ${err.message}</div></div>`;
+    }
+  }
 
-  function calClass(c){
-    if (c === 'NP') return 'noaprob-like';
-    return Number(c) >= 6 ? 'aprob' : 'noaprob';
+  function poblarFiltroModulo(){
+    const mods = Array.from(new Set(STUDENTS.flatMap(s => s.items.map(i => i.m))))
+      .sort((a, b) => Number(a) - Number(b));
+    fMod.innerHTML = '<option value="all">Todos los módulos</option>' +
+      mods.map(m => `<option value="${m}">Módulo ${m}</option>`).join('');
   }
 
   function chipHTML(item){
-    const cls = calClass(item.c) === 'noaprob' || item.c === 'NP' ? 'low' : '';
+    const cls = calClass(item.c) !== 'aprob' ? 'low' : '';
     return `<span class="chip ${cls}">Mód. ${item.m} · ${item.c}</span>`;
   }
 
-  function rowHTML(s, i){
-    const items = s.items.length
-      ? s.items.map(chipHTML).join('')
-      : `<span class="chip none">al día</span>`;
+  function rowHTML(s){
+    const items = s.items.length ? s.items.map(chipHTML).join('') : `<span class="chip none">al día</span>`;
     const waLine = s.wa ? `<span class="wa">${s.wa}</span>` : `<span class="wa">Sin WhatsApp registrado</span>`;
     const disabled = s.items.length === 0 ? 'disabled' : '';
     return `
-      <div class="row" data-idx="${i}" data-name="${s.name.toLowerCase()}">
+      <div class="row" data-name="${s.name}">
         <div class="name">${s.name}${waLine}</div>
         <div class="items">${items}</div>
         <div class="status" data-status></div>
@@ -331,7 +343,18 @@
       </div>`;
   }
 
-  roster.innerHTML = STUDENTS.map(rowHTML).join('');
+  function render(){
+    const visibles = filterStudents(STUDENTS, { term: q.value, modulo: fMod.value, calificacion: fCal.value });
+    roster.innerHTML = visibles.length
+      ? visibles.map(rowHTML).join('')
+      : '<div class="row"><div class="name">No hay alumnos que coincidan con el filtro.</div></div>';
+    roster.querySelectorAll('.row[data-name]').forEach(row => {
+      const s = STUDENTS.find(x => x.name === row.dataset.name);
+      const btn = row.querySelector('[data-btn]');
+      if (!btn || s.items.length === 0) return;
+      btn.addEventListener('click', () => generarReporte(s, row, btn));
+    });
+  }
 
   function setStatus(row, cls, text){
     const el = row.querySelector('[data-status]');
@@ -339,55 +362,37 @@
     el.innerHTML = cls ? `<span class="dot"></span>${text}` : text;
   }
 
-  roster.querySelectorAll('.row').forEach(row => {
-    const s = STUDENTS[row.dataset.idx];
-    const btn = row.querySelector('[data-btn]');
-    if (s.items.length === 0) return;
-
-    btn.addEventListener('click', () => {
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner"></span> Enviando&hellip;';
-      setStatus(row, '', 'Contactando a n8n…');
-
-      setTimeout(() => {
-        if (s.outcome === 'ok'){
-          btn.classList.add('sent');
-          btn.disabled = false;
-          btn.textContent = 'Reenviar';
-          setStatus(row, 'ok', 'Enviado por WhatsApp · justo ahora');
-          row.querySelector('.items').innerHTML = `<span class="chip none">al día</span>`;
-        } else if (s.outcome === 'no-wa'){
-          btn.disabled = false;
-          btn.textContent = 'Generar reporte';
-          setStatus(row, 'err', 'Sin WhatsApp registrado en "Alumnos"');
-        } else if (s.outcome === 'too-many'){
-          btn.disabled = false;
-          btn.textContent = 'Generar reporte';
-          setStatus(row, 'err', 'Hay más de 5 calificaciones pendientes — revisa el Sheet');
-        }
-      }, 900);
-    });
-  });
-
-  function applyFilters(){
-    const term = q.value.trim().toLowerCase();
-    const mod = fMod.value;
-    const cal = fCal.value;
-    roster.querySelectorAll('.row').forEach(row => {
-      const s = STUDENTS[row.dataset.idx];
-      const nameOk = row.dataset.name.includes(term);
-      const modOk = mod === 'all' || s.items.some(i => String(i.m) === mod);
-      const calOk = cal === 'all' || s.items.some(i => {
-        if (cal === 'np') return i.c === 'NP';
-        if (cal === 'aprob') return i.c !== 'NP' && Number(i.c) >= 6;
-        if (cal === 'noaprob') return i.c !== 'NP' && Number(i.c) < 6;
-        return true;
+  async function generarReporte(s, row, btn){
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Enviando&hellip;';
+    setStatus(row, '', 'Contactando a n8n…');
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: s.name }),
       });
-      row.classList.toggle('hidden', !(nameOk && modOk && calOk));
-    });
+      const data = await res.json();
+      if (data.ok){
+        btn.classList.add('sent');
+        btn.disabled = false;
+        btn.textContent = 'Reenviar';
+        setStatus(row, 'ok', data.message || 'Enviado por WhatsApp');
+      } else {
+        btn.disabled = false;
+        btn.textContent = 'Generar reporte';
+        setStatus(row, 'err', data.message || 'No se pudo generar el reporte');
+      }
+    } catch (err) {
+      btn.disabled = false;
+      btn.textContent = 'Generar reporte';
+      setStatus(row, 'err', 'No se pudo contactar la automatización: ' + err.message);
+    }
   }
 
-  [q, fMod, fCal].forEach(el => el.addEventListener('input', applyFilters));
+  [q, fMod, fCal].forEach(el => el.addEventListener('input', render));
+
+  cargarAlumnos();
 </script>
 </body>
 </html>
