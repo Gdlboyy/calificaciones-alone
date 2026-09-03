@@ -301,6 +301,12 @@
   const fCal = document.getElementById('fCal');
   const q = document.getElementById('q');
 
+  function esc(value){
+    return String(value).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
   async function cargarAlumnos(){
     roster.innerHTML = '<div class="row"><div class="name">Cargando alumnos&hellip;</div></div>';
     try {
@@ -314,7 +320,7 @@
       poblarFiltroModulo();
       render();
     } catch (err) {
-      roster.innerHTML = `<div class="row"><div class="name">No se pudo cargar el Sheets: ${err.message}</div></div>`;
+      roster.innerHTML = `<div class="row"><div class="name">No se pudo cargar el Sheets: ${esc(err.message)}</div></div>`;
     }
   }
 
@@ -322,21 +328,21 @@
     const mods = Array.from(new Set(STUDENTS.flatMap(s => s.items.map(i => i.m))))
       .sort((a, b) => Number(a) - Number(b));
     fMod.innerHTML = '<option value="all">Todos los módulos</option>' +
-      mods.map(m => `<option value="${m}">Módulo ${m}</option>`).join('');
+      mods.map(m => `<option value="${esc(m)}">Módulo ${esc(m)}</option>`).join('');
   }
 
   function chipHTML(item){
     const cls = calClass(item.c) !== 'aprob' ? 'low' : '';
-    return `<span class="chip ${cls}">Mód. ${item.m} · ${item.c}</span>`;
+    return `<span class="chip ${cls}">Mód. ${esc(item.m)} · ${esc(item.c)}</span>`;
   }
 
   function rowHTML(s){
     const items = s.items.length ? s.items.map(chipHTML).join('') : `<span class="chip none">al día</span>`;
-    const waLine = s.wa ? `<span class="wa">${s.wa}</span>` : `<span class="wa">Sin WhatsApp registrado</span>`;
+    const waLine = s.wa ? `<span class="wa">${esc(s.wa)}</span>` : `<span class="wa">Sin WhatsApp registrado</span>`;
     const disabled = s.items.length === 0 ? 'disabled' : '';
     return `
-      <div class="row" data-name="${s.name}">
-        <div class="name">${s.name}${waLine}</div>
+      <div class="row" data-name="${esc(s.name)}">
+        <div class="name">${esc(s.name)}${waLine}</div>
         <div class="items">${items}</div>
         <div class="status" data-status></div>
         <button class="gen" data-btn ${disabled}>${s.items.length === 0 ? 'Sin pendientes' : 'Generar reporte'}</button>
@@ -377,16 +383,16 @@
         btn.classList.add('sent');
         btn.disabled = false;
         btn.textContent = 'Reenviar';
-        setStatus(row, 'ok', data.message || 'Enviado por WhatsApp');
+        setStatus(row, 'ok', esc(data.message || 'Enviado por WhatsApp'));
       } else {
         btn.disabled = false;
         btn.textContent = 'Generar reporte';
-        setStatus(row, 'err', data.message || 'No se pudo generar el reporte');
+        setStatus(row, 'err', esc(data.message || 'No se pudo generar el reporte'));
       }
     } catch (err) {
       btn.disabled = false;
       btn.textContent = 'Generar reporte';
-      setStatus(row, 'err', 'No se pudo contactar la automatización: ' + err.message);
+      setStatus(row, 'err', 'No se pudo contactar la automatización: ' + esc(err.message));
     }
   }
 
