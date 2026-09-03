@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
     --paper:#0b0e14;
@@ -220,6 +221,26 @@
     .filters{flex-direction:column;}
     .field input, .field select{width:100%;}
   }
+
+  .gate{
+    max-width:420px; margin:56px auto 0;
+    text-align:center;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:32px 28px; box-shadow:var(--shadow);
+  }
+  .gate-copy{color:var(--ink-soft); font-size:14px; line-height:1.6; margin:0 0 20px;}
+  #gsiButton{display:flex; justify-content:center; min-height:40px;}
+  .gate-status{margin:14px 0 0; font-size:13px; color:var(--danger-ink); min-height:18px;}
+
+  .session-bar{
+    display:flex; justify-content:flex-end; align-items:center; gap:10px;
+    margin:0 0 10px; font-size:12.5px; color:var(--ink-faint);
+  }
+  .session-bar button{
+    background:none; border:none; color:var(--accent); font:inherit;
+    cursor:pointer; padding:0; text-decoration:underline;
+  }
+  .session-bar button:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
 </style>
 </head>
 <body>
@@ -235,9 +256,17 @@
     </div>
   </div>
 
-  <div class="banner">
-    <span>&#128712;</span>
-    <span><b>Vista previa con alumnos de ejemplo.</b> Cuando el Google Sheets de "Alumnos" y "Calificaciones" esté conectado, esta lista se llenará sola con tus alumnos reales.</span>
+  <div class="gate" id="gate">
+    <p class="gate-copy">Esta herramienta maneja datos de alumnos. Inicia sesión con tu cuenta de Google autorizada del Instituto ALONE para continuar.</p>
+    <div id="gsiButton"></div>
+    <p class="gate-status" id="gateStatus"></p>
+  </div>
+
+  <div id="app" hidden>
+
+  <div class="session-bar">
+    <span id="sessionEmail"></span>
+    <button type="button" id="signOutBtn">Cerrar sesión</button>
   </div>
 
   <div class="toolbar">
@@ -286,16 +315,25 @@
     </div>
   </div>
 
+  </div>
+
 </div>
 
 <script type="module">
-  import { studentsFromCSVs, filterStudents, calClass } from './lib/reportes.mjs';
+  import { studentsFromApiRows, filterStudents, calClass } from './lib/reportes.mjs';
 
-  const ALUMNOS_CSV_URL = 'PENDIENTE_URL_ALUMNOS';
-  const CALIFICACIONES_CSV_URL = 'PENDIENTE_URL_CALIFICACIONES';
+  const GOOGLE_CLIENT_ID = 'PENDIENTE_GOOGLE_CLIENT_ID';
+  const OBTENER_ALUMNOS_URL = 'PENDIENTE_URL_OBTENER_ALUMNOS';
   const WEBHOOK_URL = 'PENDIENTE_URL_WEBHOOK';
+  const TOKEN_KEY = 'alone_id_token';
 
   let STUDENTS = [];
+  let idToken = sessionStorage.getItem(TOKEN_KEY) || null;
+
+  const gate = document.getElementById('gate');
+  const gateStatus = document.getElementById('gateStatus');
+  const app = document.getElementById('app');
+  const sessionEmail = document.getElementById('sessionEmail');
   const roster = document.getElementById('roster');
   const fMod = document.getElementById('fMod');
   const fCal = document.getElementById('fCal');
@@ -307,20 +345,71 @@
     }[c]));
   }
 
+  function decodeEmail(token){
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.email || '';
+    } catch {
+      return '';
+    }
+  }
+
+  function mostrarApp(){
+    gate.hidden = true;
+    app.hidden = false;
+    sessionEmail.textContent = decodeEmail(idToken);
+  }
+
+  function mostrarGate(mensaje){
+    idToken = null;
+    sessionStorage.removeItem(TOKEN_KEY);
+    app.hidden = true;
+    gate.hidden = false;
+    gateStatus.textContent = mensaje || '';
+  }
+
+  function onCredentialResponse(response){
+    idToken = response.credential;
+    sessionStorage.setItem(TOKEN_KEY, idToken);
+    mostrarApp();
+    cargarAlumnos();
+  }
+
+  window.addEventListener('load', () => {
+    if (window.google?.accounts?.id) {
+      google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onCredentialResponse });
+      google.accounts.id.renderButton(document.getElementById('gsiButton'), { theme: 'filled_blue', size: 'large', text: 'signin_with' });
+    }
+    if (idToken) {
+      mostrarApp();
+      cargarAlumnos();
+    } else {
+      mostrarGate();
+    }
+  });
+
+  document.getElementById('signOutBtn').addEventListener('click', () => {
+    if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+    mostrarGate();
+  });
+
   async function cargarAlumnos(){
     roster.innerHTML = '<div class="row"><div class="name">Cargando alumnos&hellip;</div></div>';
     try {
-      const [alumnosRes, califRes] = await Promise.all([
-        fetch(ALUMNOS_CSV_URL + '&_=' + Date.now(), { cache: 'no-store' }),
-        fetch(CALIFICACIONES_CSV_URL + '&_=' + Date.now(), { cache: 'no-store' }),
-      ]);
-      if (!alumnosRes.ok || !califRes.ok) throw new Error('No se pudo leer el Google Sheets.');
-      const [alumnosText, califText] = await Promise.all([alumnosRes.text(), califRes.text()]);
-      STUDENTS = studentsFromCSVs(alumnosText, califText);
+      const res = await fetch(OBTENER_ALUMNOS_URL, {
+        headers: { 'Authorization': 'Bearer ' + idToken },
+        cache: 'no-store',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        mostrarGate(data.message || 'Tu sesión no es válida o no está autorizada. Inicia sesión de nuevo.');
+        return;
+      }
+      STUDENTS = studentsFromApiRows(data.alumnos, data.calificaciones);
       poblarFiltroModulo();
       render();
     } catch (err) {
-      roster.innerHTML = `<div class="row"><div class="name">No se pudo cargar el Sheets: ${esc(err.message)}</div></div>`;
+      roster.innerHTML = `<div class="row"><div class="name">No se pudo cargar la lista: ${esc(err.message)}</div></div>`;
     }
   }
 
@@ -375,9 +464,13 @@
     try {
       const res = await fetch(WEBHOOK_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + idToken },
         body: JSON.stringify({ nombre: s.name }),
       });
+      if (res.status === 401){
+        mostrarGate('Tu sesión expiró o no está autorizada. Inicia sesión de nuevo.');
+        return;
+      }
       const data = await res.json();
       if (data.ok){
         btn.classList.add('sent');
