@@ -77,6 +77,16 @@ Archivos que se preparan en este proyecto para que el usuario los suba:
 - Instrucciones paso a paso para recrear la plantilla en Google Slides.
 - `n8n/workflow.json` — el flujo de n8n listo para importar.
 
+## 8.1 Acceso — inicio de sesión con Google (agregado tras revisión de seguridad)
+
+Hallazgo de seguridad: el Sheets publicado como CSV y el webhook de n8n quedaban alcanzables por cualquiera con la URL (visible en el código fuente de la página pública), exponiendo nombre y WhatsApp de menores de edad y permitiendo disparar envíos de WhatsApp arbitrarios. Decisión (elegida por el usuario, opción robusta): la página exige iniciar sesión con una cuenta de Google autorizada antes de mostrar cualquier dato o permitir generar un reporte, y la verificación ocurre en n8n (no solo en el navegador).
+
+- **Nueva pestaña "StaffAutorizado"** en el mismo Google Sheets: columna `EMAIL`, una cuenta de Google autorizada por fila.
+- **Google Cloud**: se crea un OAuth 2.0 Client ID (tipo "Web application") en un proyecto de `institutoalonecrm@gmail.com`, restringido a la URL de GitHub Pages. No requiere client secret (flujo de "Sign In with Google" basado en ID token).
+- **Página web**: usa Google Identity Services (`accounts.google.com/gsi/client`) para mostrar el botón de inicio de sesión. Mientras no haya sesión válida, no se pide ni se muestra ningún dato de alumnos. El ID token se manda como header `Authorization: Bearer <token>` en cada llamada a n8n.
+- **n8n**: ambos webhooks (`generar-reporte` y el nuevo `obtener-alumnos`) validan el token contra `https://oauth2.googleapis.com/tokeninfo` (aud = Client ID, email_verified = true) y contra la lista de "StaffAutorizado", antes de leer o escribir cualquier dato. Si no es válido, responden 401 sin ejecutar nada más.
+- **Ya no se publica el Sheets como CSV público** — el nuevo webhook `obtener-alumnos` es la única forma en que la página obtiene la lista de alumnos, y solo la entrega a sesiones autorizadas.
+
 ## 9. Limitación conocida
 
 El alumno se identifica por su nombre (texto exacto) entre las pestañas "Alumnos" y "Calificaciones". Si dos alumnos llegaran a tener el mismo nombre, el sistema los confundiría. Mientras la lista de alumnos sea manejable, se soluciona escribiendo el nombre completo y evitando duplicados exactos; si esto crece mucho, se puede agregar un identificador único más adelante.
