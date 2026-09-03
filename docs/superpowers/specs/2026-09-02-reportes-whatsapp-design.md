@@ -34,8 +34,10 @@ Dar de alta, desde una página web sencilla, un botón "Generar reporte" por alu
 
 ## 4. Página web (mini-herramienta)
 
-- HTML simple, sin backend propio, hospedada en GitHub Pages (repo nuevo que el usuario crea y sube).
-- Lee la pestaña "Alumnos" (vía el mismo mecanismo CSV público que ya usa el dashboard existente) y muestra la lista de alumnos con un botón "Generar reporte" cada uno.
+- HTML simple, sin backend propio, hospedada en GitHub Pages (repo nuevo que el usuario crea y sube). Construida y aprobada visualmente en `web/index.html` (logo real de ALONE, tema oscuro profesional con acentos dorado/azul tomados del logo, fondo con degradado y textura continuos en toda la página).
+- Lee las pestañas "Alumnos" y "Calificaciones" (vía el mismo mecanismo CSV público que ya usa el dashboard existente) y arma, por alumno, su lista de calificaciones pendientes (no reportadas).
+- Muestra un buscador por nombre y dos filtros: por módulo específico y por rango de calificación (aprobatoria / no aprobatoria / NP), calculados a partir de los datos ya cargados.
+- Cada alumno se ve como una fila con: nombre, WhatsApp registrado, etiquetas de sus calificaciones pendientes ("Mód. 14 · 8.5"), y el botón "Generar reporte".
 - Al hacer clic: llama al webhook de n8n pasando el nombre del alumno, deshabilita el botón, y muestra el resultado ("Enviado ✅" o el mensaje de error) que regresa n8n.
 
 ## 5. Plantilla del reporte
