@@ -70,6 +70,7 @@
     height:128px; width:auto; flex:none;
     filter:drop-shadow(0 10px 26px rgba(0,0,0,.55));
   }
+  .head-inner > div{min-width:0;}
   .eyebrow{
     font-size:12.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
     color:var(--gold); margin:0 0 7px;
@@ -226,12 +227,20 @@
     .row .status{order:3;}
     .row button.gen{order:4;}
     .how{grid-template-columns:1fr 1fr;}
+    .wrap{padding:0 16px 56px;}
+    .head-inner{gap:16px; padding:32px 0 28px;}
+    .head-inner img{height:72px;}
+    h1{font-size:clamp(20px,7vw,28px);}
+    .subtitle{font-size:13.5px;}
   }
   @media (max-width:460px){
     .how{grid-template-columns:1fr;}
     .toolbar{flex-direction:column; align-items:stretch;}
     .filters{flex-direction:column;}
     .field input, .field select{width:100%;}
+    .head-inner{align-items:flex-start; gap:12px;}
+    .head-inner img{height:56px;}
+    h1{font-size:clamp(18px,7.5vw,24px);}
   }
 
   .gate{
