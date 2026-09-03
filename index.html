@@ -151,16 +151,26 @@
   }
   .items{display:grid; grid-template-columns:auto auto; gap:6px 14px; align-items:center;}
   .chip{
-    font-family:'Archivo', sans-serif; font-weight:700; font-size:11.5px;
+    font-family:'Archivo', sans-serif; font-weight:700;
     font-variant-numeric:tabular-nums;
-    padding:4px 9px; border-radius:999px; white-space:nowrap;
-    text-align:center;
+    border-radius:999px; white-space:nowrap; text-align:center;
+  }
+  .chip.mod{
+    font-size:11px; padding:4px 9px;
+    background:var(--line-soft); color:var(--ink-soft);
+    border:1px solid var(--line);
+  }
+  .chip.cal{
+    font-size:13.5px; font-weight:800; padding:5px 13px;
     background:var(--accent-soft); color:var(--accent-strong);
     border:1px solid rgba(61,155,220,.25);
   }
-  .chip.mod{background:var(--line-soft); color:var(--ink-soft); border-color:var(--line);}
-  .chip.none{grid-column:1 / -1; background:var(--line-soft); color:var(--ink-faint); border-color:var(--line);}
-  .chip.low{background:var(--danger-soft); color:var(--danger-ink); border-color:rgba(226,100,90,.3);}
+  .chip.cal.ok{background:var(--ok-soft); color:var(--ok-ink); border-color:rgba(52,195,122,.35);}
+  .chip.cal.low{background:var(--danger-soft); color:var(--danger-ink); border-color:rgba(226,100,90,.3);}
+  .chip.none{
+    grid-column:1 / -1; font-size:11.5px; padding:4px 9px;
+    background:var(--line-soft); color:var(--ink-faint); border:1px solid var(--line);
+  }
   .status{font-size:12.5px; color:var(--ink-soft); min-width:180px; text-align:left;}
   .status.ok{color:var(--ok-ink);}
   .status.err{color:var(--danger-ink);}
@@ -424,8 +434,8 @@
   }
 
   function chipHTML(item){
-    const cls = calClass(item.c) !== 'aprob' ? 'low' : '';
-    return `<span class="chip mod">Mód. ${esc(item.m)}</span><span class="chip ${cls}">${esc(item.c)}</span>`;
+    const cls = calClass(item.c) === 'aprob' ? 'ok' : 'low';
+    return `<span class="chip mod">Mód. ${esc(item.m)}</span><span class="chip cal ${cls}">${esc(item.c)}</span>`;
   }
 
   function rowHTML(s){
