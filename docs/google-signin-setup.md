@@ -18,7 +18,7 @@ Esto crea la identidad que le permite a la página saber quién eres antes de mo
    - No necesitas "URI de redireccionamiento autorizados" (el inicio de sesión de Google en esta página no redirige, usa el flujo de ID token).
    - Guarda y copia el **Client ID** (termina en `.apps.googleusercontent.com`). No necesitas el "Client secret" para esto.
 5. Anota ese Client ID — se pega en dos lugares:
-   - `web/index.html`, constante `GOOGLE_CLIENT_ID`.
+   - `index.html`, constante `GOOGLE_CLIENT_ID`.
    - `n8n/workflow.json`, en los nodos "Validar sesión (G)" y "Validar sesión (O)" (reemplaza `GOOGLE_CLIENT_ID_AQUI`).
 6. En la pestaña "StaffAutorizado" del Google Sheets (ver `docs/sheets-setup.md`), agrega una fila por cada cuenta de Google que deba poder usar la herramienta.
 

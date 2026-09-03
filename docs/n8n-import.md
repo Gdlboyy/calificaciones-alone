@@ -18,8 +18,8 @@ Ambas exigen una sesión de Google válida y autorizada antes de hacer cualquier
    - `GOOGLE_CLIENT_ID_AQUI` (aparece en los nodos "Validar sesión (G)" y "Validar sesión (O)") → el Client ID de `docs/google-signin-setup.md`.
 3. Crea/asigna las credenciales de Google (OAuth) en los nodos de Google Sheets ("Leer Staff Autorizado (G)/(O)", "Leer Calificaciones pendientes", "Leer WhatsApp del alumno", "Marcar como REPORTADO", "Leer todos los Alumnos", "Leer todas las Calificaciones"), y en "Duplicar diapositiva plantilla" / "Rellenar datos en la diapositiva" (Google Slides — tipo de credencial `googleSlidesOAuth2Api`) y "Exportar diapositiva como PNG" (Google Drive — `googleDriveOAuth2Api`). Todas deben autenticar con `institutoalonecrm@gmail.com`.
 4. Activa el workflow y copia las URLs de producción de ambos nodos webhook:
-   - La de "Webhook Generar Reporte" → `WEBHOOK_URL` en `web/index.html`.
-   - La de "Webhook Obtener Alumnos" → `OBTENER_ALUMNOS_URL` en `web/index.html`.
+   - La de "Webhook Generar Reporte" → `WEBHOOK_URL` en `index.html`.
+   - La de "Webhook Obtener Alumnos" → `OBTENER_ALUMNOS_URL` en `index.html`.
 5. Si al probar desde la página ves errores de CORS en la consola del navegador, entra a las opciones de cada nodo Webhook y revisa/activa "Allowed Origins (CORS)" con la URL de tu GitHub Pages (o `*` mientras pruebas en local).
 6. Prueba de autenticación primero: con un correo que SÍ esté en "StaffAutorizado" debes poder leer la lista; con uno que no esté (o sin header `Authorization`), ambos webhooks deben responder `401` con `{ ok:false, message:'...' }`.
 7. Prueba cada tramo del reporte con el Sheets de prueba (con los 2-3 alumnos de `docs/sheets-setup.md`, Paso 8), siempre con un `Authorization: Bearer <token>` de una cuenta autorizada:
