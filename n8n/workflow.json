@@ -12,8 +12,59 @@
       "name": "Webhook Generar Reporte",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [-1180, 0],
+      "position": [-1600, 0],
       "webhookId": "generar-reporte-alone"
+    },
+    {
+      "id": "a1b2c3d4-0020-4aaa-8aaa-000000000020",
+      "parameters": {
+        "documentId": { "__rl": true, "value": "SHEET_ID_AQUI", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "StaffAutorizado", "mode": "name" },
+        "filtersUI": { "values": [] },
+        "options": {}
+      },
+      "name": "Leer Staff Autorizado (G)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-1380, 0]
+    },
+    {
+      "id": "a1b2c3d4-0021-4aaa-8aaa-000000000021",
+      "parameters": {
+        "jsCode": "const authHeader = $('Webhook Generar Reporte').first().json.headers?.authorization || $('Webhook Generar Reporte').first().json.headers?.Authorization || '';\nconst token = authHeader.replace(/^Bearer\\s+/i, '').trim();\nconst GOOGLE_CLIENT_ID = 'GOOGLE_CLIENT_ID_AQUI';\n\nif (!token) {\n  return [{ json: { autorizado: false, motivo: 'Falta iniciar sesión' } }];\n}\n\nlet info;\ntry {\n  info = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'https://oauth2.googleapis.com/tokeninfo',\n    qs: { id_token: token },\n    json: true,\n    ignoreHttpStatusErrors: true,\n  });\n} catch (e) {\n  return [{ json: { autorizado: false, motivo: 'No se pudo validar la sesión' } }];\n}\n\nif (!info || info.error) {\n  return [{ json: { autorizado: false, motivo: 'Sesión inválida o expirada' } }];\n}\nif (info.aud !== GOOGLE_CLIENT_ID) {\n  return [{ json: { autorizado: false, motivo: 'Sesión no corresponde a esta aplicación' } }];\n}\nif (info.email_verified !== 'true' && info.email_verified !== true) {\n  return [{ json: { autorizado: false, motivo: 'Correo no verificado' } }];\n}\n\nconst lista = $input.all().map(i => String(i.json.EMAIL || '').trim().toLowerCase());\nconst email = String(info.email || '').toLowerCase();\nif (!lista.includes(email)) {\n  return [{ json: { autorizado: false, motivo: 'Esta cuenta no está autorizada', email } }];\n}\n\nreturn [{ json: { autorizado: true, email } }];"
+      },
+      "name": "Validar sesión (G)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1160, 0]
+    },
+    {
+      "id": "a1b2c3d4-0022-4aaa-8aaa-000000000022",
+      "parameters": {
+        "conditions": {
+          "options": { "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            { "leftValue": "={{ $json.autorizado }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "¿Autorizado? (G)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-940, 0]
+    },
+    {
+      "id": "a1b2c3d4-0023-4aaa-8aaa-000000000023",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, message: $('Validar sesión (G)').first().json.motivo || 'No autorizado' } }}",
+        "options": { "responseCode": 401 }
+      },
+      "name": "Responder no autorizado (G)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-940, 220]
     },
     {
       "id": "a1b2c3d4-0002-4aaa-8aaa-000000000002",
@@ -22,7 +73,7 @@
         "sheetName": { "__rl": true, "value": "Calificaciones", "mode": "name" },
         "filtersUI": {
           "values": [
-            { "lookupColumn": "ALUMNO", "lookupValue": "={{ $json.body.nombre }}" }
+            { "lookupColumn": "ALUMNO", "lookupValue": "={{ $('Webhook Generar Reporte').first().json.body.nombre }}" }
           ]
         },
         "options": {}
@@ -30,7 +81,7 @@
       "name": "Leer Calificaciones pendientes",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [-960, 0]
+      "position": [-720, 0]
     },
     {
       "id": "a1b2c3d4-0003-4aaa-8aaa-000000000003",
@@ -40,7 +91,7 @@
       "name": "Filtrar no reportadas",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [-740, 0]
+      "position": [-500, 0]
     },
     {
       "id": "a1b2c3d4-0004-4aaa-8aaa-000000000004",
@@ -74,7 +125,7 @@
       "name": "Validar cantidad",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3.2,
-      "position": [-520, 0]
+      "position": [-280, 0]
     },
     {
       "id": "a1b2c3d4-0005-4aaa-8aaa-000000000005",
@@ -91,7 +142,7 @@
       "name": "Leer WhatsApp del alumno",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [-300, 40]
+      "position": [-40, 40]
     },
     {
       "id": "a1b2c3d4-0006-4aaa-8aaa-000000000006",
@@ -110,7 +161,7 @@
       "name": "¿Sin WhatsApp?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [-80, 40]
+      "position": [180, 40]
     },
     {
       "id": "a1b2c3d4-0007-4aaa-8aaa-000000000007",
@@ -126,7 +177,7 @@
       "name": "Duplicar diapositiva plantilla",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [140, 0]
+      "position": [400, 0]
     },
     {
       "id": "a1b2c3d4-0008-4aaa-8aaa-000000000008",
@@ -136,7 +187,7 @@
       "name": "Armar reemplazos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [360, 0]
+      "position": [620, 0]
     },
     {
       "id": "a1b2c3d4-0009-4aaa-8aaa-000000000009",
@@ -152,7 +203,7 @@
       "name": "Rellenar datos en la diapositiva",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [580, 0]
+      "position": [840, 0]
     },
     {
       "id": "a1b2c3d4-0010-4aaa-8aaa-000000000010",
@@ -166,7 +217,7 @@
       "name": "Exportar diapositiva como PNG",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [800, 0]
+      "position": [1060, 0]
     },
     {
       "id": "a1b2c3d4-0011-4aaa-8aaa-000000000011",
@@ -182,7 +233,7 @@
       "name": "Enviar por WhatsApp (Evolution API)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1020, 0]
+      "position": [1280, 0]
     },
     {
       "id": "a1b2c3d4-0012-4aaa-8aaa-000000000012",
@@ -199,7 +250,7 @@
       "name": "Marcar como REPORTADO",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [1240, 0]
+      "position": [1500, 0]
     },
     {
       "id": "a1b2c3d4-0013-4aaa-8aaa-000000000013",
@@ -210,7 +261,7 @@
       "name": "Responder éxito",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [1460, 0]
+      "position": [1720, 0]
     },
     {
       "id": "a1b2c3d4-0014-4aaa-8aaa-000000000014",
@@ -221,7 +272,7 @@
       "name": "Responder sin pendientes",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [-520, 220]
+      "position": [-280, 220]
     },
     {
       "id": "a1b2c3d4-0015-4aaa-8aaa-000000000015",
@@ -232,7 +283,7 @@
       "name": "Responder demasiadas",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [-520, 320]
+      "position": [-280, 320]
     },
     {
       "id": "a1b2c3d4-0016-4aaa-8aaa-000000000016",
@@ -243,11 +294,131 @@
       "name": "Responder sin WhatsApp",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
-      "position": [-80, 220]
+      "position": [180, 220]
+    },
+    {
+      "id": "a1b2c3d4-0030-4aaa-8aaa-000000000030",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "obtener-alumnos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook Obtener Alumnos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1600, 500],
+      "webhookId": "obtener-alumnos-alone"
+    },
+    {
+      "id": "a1b2c3d4-0031-4aaa-8aaa-000000000031",
+      "parameters": {
+        "documentId": { "__rl": true, "value": "SHEET_ID_AQUI", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "StaffAutorizado", "mode": "name" },
+        "filtersUI": { "values": [] },
+        "options": {}
+      },
+      "name": "Leer Staff Autorizado (O)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-1380, 500]
+    },
+    {
+      "id": "a1b2c3d4-0032-4aaa-8aaa-000000000032",
+      "parameters": {
+        "jsCode": "const authHeader = $('Webhook Obtener Alumnos').first().json.headers?.authorization || $('Webhook Obtener Alumnos').first().json.headers?.Authorization || '';\nconst token = authHeader.replace(/^Bearer\\s+/i, '').trim();\nconst GOOGLE_CLIENT_ID = 'GOOGLE_CLIENT_ID_AQUI';\n\nif (!token) {\n  return [{ json: { autorizado: false, motivo: 'Falta iniciar sesión' } }];\n}\n\nlet info;\ntry {\n  info = await this.helpers.httpRequest({\n    method: 'GET',\n    url: 'https://oauth2.googleapis.com/tokeninfo',\n    qs: { id_token: token },\n    json: true,\n    ignoreHttpStatusErrors: true,\n  });\n} catch (e) {\n  return [{ json: { autorizado: false, motivo: 'No se pudo validar la sesión' } }];\n}\n\nif (!info || info.error) {\n  return [{ json: { autorizado: false, motivo: 'Sesión inválida o expirada' } }];\n}\nif (info.aud !== GOOGLE_CLIENT_ID) {\n  return [{ json: { autorizado: false, motivo: 'Sesión no corresponde a esta aplicación' } }];\n}\nif (info.email_verified !== 'true' && info.email_verified !== true) {\n  return [{ json: { autorizado: false, motivo: 'Correo no verificado' } }];\n}\n\nconst lista = $input.all().map(i => String(i.json.EMAIL || '').trim().toLowerCase());\nconst email = String(info.email || '').toLowerCase();\nif (!lista.includes(email)) {\n  return [{ json: { autorizado: false, motivo: 'Esta cuenta no está autorizada', email } }];\n}\n\nreturn [{ json: { autorizado: true, email } }];"
+      },
+      "name": "Validar sesión (O)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1160, 500]
+    },
+    {
+      "id": "a1b2c3d4-0033-4aaa-8aaa-000000000033",
+      "parameters": {
+        "conditions": {
+          "options": { "leftValue": "", "caseSensitive": true, "typeValidation": "strict" },
+          "conditions": [
+            { "leftValue": "={{ $json.autorizado }}", "rightValue": true, "operator": { "type": "boolean", "operation": "equals" } }
+          ],
+          "combinator": "and"
+        }
+      },
+      "name": "¿Autorizado? (O)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-940, 500]
+    },
+    {
+      "id": "a1b2c3d4-0034-4aaa-8aaa-000000000034",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, message: $('Validar sesión (O)').first().json.motivo || 'No autorizado' } }}",
+        "options": { "responseCode": 401 }
+      },
+      "name": "Responder no autorizado (O)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-940, 720]
+    },
+    {
+      "id": "a1b2c3d4-0035-4aaa-8aaa-000000000035",
+      "parameters": {
+        "documentId": { "__rl": true, "value": "SHEET_ID_AQUI", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Alumnos", "mode": "name" },
+        "filtersUI": { "values": [] },
+        "options": {}
+      },
+      "name": "Leer todos los Alumnos",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-720, 500]
+    },
+    {
+      "id": "a1b2c3d4-0036-4aaa-8aaa-000000000036",
+      "parameters": {
+        "documentId": { "__rl": true, "value": "SHEET_ID_AQUI", "mode": "id" },
+        "sheetName": { "__rl": true, "value": "Calificaciones", "mode": "name" },
+        "filtersUI": { "values": [] },
+        "options": {}
+      },
+      "name": "Leer todas las Calificaciones",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [-500, 500]
+    },
+    {
+      "id": "a1b2c3d4-0037-4aaa-8aaa-000000000037",
+      "parameters": {
+        "jsCode": "const alumnos = $('Leer todos los Alumnos').all().map(i => i.json);\nconst calificaciones = $('Leer todas las Calificaciones').all().map(i => i.json);\nreturn [{ json: { ok: true, alumnos, calificaciones } }];"
+      },
+      "name": "Combinar respuesta alumnos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-280, 500]
+    },
+    {
+      "id": "a1b2c3d4-0038-4aaa-8aaa-000000000038",
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}"
+      },
+      "name": "Responder alumnos",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-60, 500]
     }
   ],
   "connections": {
-    "Webhook Generar Reporte": { "main": [[{ "node": "Leer Calificaciones pendientes", "type": "main", "index": 0 }]] },
+    "Webhook Generar Reporte": { "main": [[{ "node": "Leer Staff Autorizado (G)", "type": "main", "index": 0 }]] },
+    "Leer Staff Autorizado (G)": { "main": [[{ "node": "Validar sesión (G)", "type": "main", "index": 0 }]] },
+    "Validar sesión (G)": { "main": [[{ "node": "¿Autorizado? (G)", "type": "main", "index": 0 }]] },
+    "¿Autorizado? (G)": {
+      "main": [
+        [{ "node": "Leer Calificaciones pendientes", "type": "main", "index": 0 }],
+        [{ "node": "Responder no autorizado (G)", "type": "main", "index": 0 }]
+      ]
+    },
     "Leer Calificaciones pendientes": { "main": [[{ "node": "Filtrar no reportadas", "type": "main", "index": 0 }]] },
     "Filtrar no reportadas": { "main": [[{ "node": "Validar cantidad", "type": "main", "index": 0 }]] },
     "Validar cantidad": {
@@ -269,6 +440,19 @@
     "Rellenar datos en la diapositiva": { "main": [[{ "node": "Exportar diapositiva como PNG", "type": "main", "index": 0 }]] },
     "Exportar diapositiva como PNG": { "main": [[{ "node": "Enviar por WhatsApp (Evolution API)", "type": "main", "index": 0 }]] },
     "Enviar por WhatsApp (Evolution API)": { "main": [[{ "node": "Marcar como REPORTADO", "type": "main", "index": 0 }]] },
-    "Marcar como REPORTADO": { "main": [[{ "node": "Responder éxito", "type": "main", "index": 0 }]] }
+    "Marcar como REPORTADO": { "main": [[{ "node": "Responder éxito", "type": "main", "index": 0 }]] },
+
+    "Webhook Obtener Alumnos": { "main": [[{ "node": "Leer Staff Autorizado (O)", "type": "main", "index": 0 }]] },
+    "Leer Staff Autorizado (O)": { "main": [[{ "node": "Validar sesión (O)", "type": "main", "index": 0 }]] },
+    "Validar sesión (O)": { "main": [[{ "node": "¿Autorizado? (O)", "type": "main", "index": 0 }]] },
+    "¿Autorizado? (O)": {
+      "main": [
+        [{ "node": "Leer todos los Alumnos", "type": "main", "index": 0 }],
+        [{ "node": "Responder no autorizado (O)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Leer todos los Alumnos": { "main": [[{ "node": "Leer todas las Calificaciones", "type": "main", "index": 0 }]] },
+    "Leer todas las Calificaciones": { "main": [[{ "node": "Combinar respuesta alumnos", "type": "main", "index": 0 }]] },
+    "Combinar respuesta alumnos": { "main": [[{ "node": "Responder alumnos", "type": "main", "index": 0 }]] }
   }
 }
