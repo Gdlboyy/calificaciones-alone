@@ -50,3 +50,38 @@ export function calificacionesFromCSV(text) {
   }
   return items;
 }
+
+export function studentsFromCSVs(alumnosText, calificacionesText) {
+  const alumnos = alumnosFromCSV(alumnosText);
+  const pendientes = calificacionesFromCSV(calificacionesText);
+
+  for (const item of pendientes) {
+    if (!alumnos.has(item.alumno)) {
+      alumnos.set(item.alumno, { name: item.alumno, wa: null });
+    }
+  }
+
+  const students = Array.from(alumnos.values()).map(a => ({
+    name: a.name,
+    wa: a.wa,
+    items: pendientes.filter(p => p.alumno === a.name).map(p => ({ m: p.m, c: p.c })),
+  }));
+
+  students.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  return students;
+}
+
+export function calClass(c) {
+  if (c === 'NP') return 'np';
+  return Number(c) >= 6 ? 'aprob' : 'noaprob';
+}
+
+export function filterStudents(students, { term = '', modulo = 'all', calificacion = 'all' } = {}) {
+  const needle = term.trim().toLowerCase();
+  return students.filter(s => {
+    const nameOk = !needle || s.name.toLowerCase().includes(needle);
+    const modOk = modulo === 'all' || s.items.some(i => String(i.m) === String(modulo));
+    const calOk = calificacion === 'all' || s.items.some(i => calClass(i.c) === calificacion);
+    return nameOk && modOk && calOk;
+  });
+}

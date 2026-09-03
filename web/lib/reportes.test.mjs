@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseCSV, alumnosFromCSV, calificacionesFromCSV } from './reportes.mjs';
+import { parseCSV, alumnosFromCSV, calificacionesFromCSV, studentsFromCSVs, calClass, filterStudents } from './reportes.mjs';
 
 const ALUMNOS_CSV = 'NOMBRE,WHATSAPP\nSofía Ramírez Tello,5233112233\nKevin Alexander Ruiz,\n';
 const CALIF_CSV =
@@ -29,4 +29,36 @@ test('calificacionesFromCSV excluye filas ya REPORTADAS', () => {
   const items = calificacionesFromCSV(CALIF_CSV);
   assert.equal(items.length, 2);
   assert.equal(items.some(i => i.m === '10'), false);
+});
+
+test('studentsFromCSVs cruza alumnos con sus calificaciones pendientes, ordenado por nombre', () => {
+  const students = studentsFromCSVs(ALUMNOS_CSV, CALIF_CSV);
+  assert.deepEqual(students.map(s => s.name), ['Kevin Alexander Ruiz', 'Sofía Ramírez Tello']);
+  const sofia = students.find(s => s.name === 'Sofía Ramírez Tello');
+  assert.deepEqual(sofia.items, [{ m: '14', c: '8.5' }]);
+});
+
+test('studentsFromCSVs incluye alumnos con calificación pendiente aunque falten en Alumnos', () => {
+  const soloCalif = 'ALUMNO,MODULO,CALIFICACION,REPORTADO\nNuevo Alumno,3,7,\n';
+  const students = studentsFromCSVs('NOMBRE,WHATSAPP\n', soloCalif);
+  assert.equal(students.length, 1);
+  assert.equal(students[0].wa, null);
+});
+
+test('calClass clasifica aprobatoria, no aprobatoria y NP', () => {
+  assert.equal(calClass('8'), 'aprob');
+  assert.equal(calClass('5.9'), 'noaprob');
+  assert.equal(calClass('NP'), 'np');
+});
+
+test('filterStudents combina texto, módulo y calificación', () => {
+  const students = studentsFromCSVs(ALUMNOS_CSV, CALIF_CSV);
+  const soloKevin = filterStudents(students, { calificacion: 'noaprob' });
+  assert.deepEqual(soloKevin.map(s => s.name), ['Kevin Alexander Ruiz']);
+
+  const porModulo = filterStudents(students, { modulo: '14' });
+  assert.deepEqual(porModulo.map(s => s.name), ['Sofía Ramírez Tello']);
+
+  const porTexto = filterStudents(students, { term: 'kevin' });
+  assert.deepEqual(porTexto.map(s => s.name), ['Kevin Alexander Ruiz']);
 });
