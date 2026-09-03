@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reportes ALONE</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800;900&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#0b0e14;
+    --surface:#131826;
+    --surface-2:#1a2032;
+    --ink:#eef1f7;
+    --ink-soft:#9aa5bc;
+    --ink-faint:#69728a;
+    --line:#252d40;
+    --line-soft:#1c2233;
+    --accent:#3d9bdc;
+    --accent-strong:#69b7ea;
+    --accent-soft:#15263a;
+    --gold:#d4af37;
+    --gold-soft:#2a2313;
+    --ok:#34c37a;
+    --ok-soft:#0f2a1e;
+    --ok-ink:#7fe3ab;
+    --warn:#e3a53f;
+    --warn-soft:#332510;
+    --warn-ink:#f0c98a;
+    --danger:#e2645a;
+    --danger-soft:#341714;
+    --danger-ink:#f4a89c;
+    --shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 10px 30px -14px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box;}
+  html{color-scheme:dark;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Public Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:0 24px 72px;}
+
+  .head-band{
+    position:relative;
+    background:
+      radial-gradient(ellipse 900px 480px at 14% -18%, rgba(212,175,55,.16), transparent 60%),
+      radial-gradient(ellipse 720px 480px at 88% 4%, rgba(61,155,220,.15), transparent 55%),
+      linear-gradient(180deg, #10141f 0%, #0b0e14 100%);
+    border-bottom:1px solid var(--line);
+    overflow:hidden;
+  }
+  .head-band::before{
+    content:'';
+    position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(115deg, rgba(212,175,55,.05) 0 1px, transparent 1px 26px),
+      repeating-linear-gradient(25deg, rgba(212,175,55,.035) 0 1px, transparent 1px 26px);
+    pointer-events:none;
+  }
+  .head-inner{
+    position:relative; z-index:1;
+    max-width:960px; margin:0 auto;
+    padding:40px 24px 34px;
+    display:flex; align-items:center; gap:20px;
+  }
+  .head-inner img{
+    height:58px; width:auto; flex:none;
+    filter:drop-shadow(0 6px 16px rgba(0,0,0,.5));
+  }
+  .eyebrow{
+    font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--gold); margin:0 0 6px;
+  }
+  h1{
+    font-family:'Archivo', sans-serif; font-weight:800;
+    font-size:clamp(24px,3.2vw,31px);
+    letter-spacing:.005em; margin:0; color:var(--ink);
+    text-wrap:balance;
+  }
+  .subtitle{color:var(--ink-soft); font-size:14.5px; margin:5px 0 0;}
+
+  .banner{
+    display:flex; align-items:flex-start; gap:10px;
+    margin:24px 0 22px;
+    padding:12px 16px;
+    background:var(--gold-soft);
+    border:1px solid rgba(212,175,55,.3);
+    border-radius:10px;
+    color:var(--ink-soft);
+    font-size:13.5px;
+    line-height:1.5;
+  }
+  .banner b{color:var(--warn-ink); font-weight:700;}
+
+  .toolbar{
+    display:flex; gap:10px; align-items:center; justify-content:space-between;
+    margin:28px 0 14px; flex-wrap:wrap;
+  }
+  .toolbar h2{
+    font-family:'Archivo', sans-serif; font-weight:800; font-size:14px;
+    text-transform:uppercase; letter-spacing:.07em; color:var(--ink-faint);
+    margin:0;
+  }
+  .filters{display:flex; gap:9px; flex-wrap:wrap;}
+  .field{position:relative;}
+  .field svg{position:absolute; left:11px; top:50%; transform:translateY(-50%); opacity:.5; pointer-events:none;}
+  .field input, .field select{
+    font-family:inherit; font-size:13.5px; color:var(--ink);
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:9px; padding:9px 12px; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .field input{padding-left:32px; width:200px;}
+  .field select{appearance:none; padding-right:30px; cursor:pointer;}
+  .field.select-wrap::after{
+    content:''; position:absolute; right:11px; top:50%; translate:0 -50%;
+    width:8px; height:8px; pointer-events:none;
+    border-right:1.6px solid var(--ink-faint); border-bottom:1.6px solid var(--ink-faint);
+    transform:translateY(-65%) rotate(45deg);
+  }
+  .field input:focus-visible, .field select:focus-visible{
+    border-color:var(--accent); box-shadow:0 0 0 3px rgba(61,155,220,.18);
+  }
+
+  .roster{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:14px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .row{
+    display:grid;
+    grid-template-columns: 1.3fr 1.7fr auto 168px;
+    align-items:center;
+    gap:16px;
+    padding:15px 18px;
+    border-bottom:1px solid var(--line-soft);
+    transition:background .12s;
+  }
+  .row:hover{background:var(--surface-2);}
+  .row:last-child{border-bottom:none;}
+  .row.hidden{display:none;}
+  .name{font-weight:600; font-size:15px;}
+  .name .wa{
+    display:block; margin-top:2px; font-size:12px; color:var(--ink-faint);
+    font-variant-numeric:tabular-nums;
+  }
+  .items{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{
+    font-family:'Archivo', sans-serif; font-weight:700; font-size:11.5px;
+    font-variant-numeric:tabular-nums;
+    padding:4px 9px; border-radius:999px; white-space:nowrap;
+    background:var(--accent-soft); color:var(--accent-strong);
+    border:1px solid rgba(61,155,220,.25);
+  }
+  .chip.none{background:var(--line-soft); color:var(--ink-faint); border-color:var(--line);}
+  .chip.low{background:var(--danger-soft); color:var(--danger-ink); border-color:rgba(226,100,90,.3);}
+  .status{font-size:12.5px; color:var(--ink-soft); min-width:180px; text-align:left;}
+  .status.ok{color:var(--ok-ink);}
+  .status.err{color:var(--danger-ink);}
+  .status .dot{display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; vertical-align:middle;}
+  .status.ok .dot{background:var(--ok);}
+  .status.err .dot{background:var(--danger);}
+
+  button.gen{
+    font-family:'Public Sans', sans-serif; font-weight:700; font-size:13.5px;
+    color:#0b0e14; background:var(--accent);
+    border:none; border-radius:9px; padding:10px 16px;
+    cursor:pointer; transition:background .15s, transform .1s;
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    width:100%;
+  }
+  button.gen:hover:not(:disabled){background:var(--accent-strong);}
+  button.gen:active:not(:disabled){transform:translateY(1px);}
+  button.gen:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  button.gen:disabled{
+    background:var(--line-soft); color:var(--ink-faint); cursor:not-allowed;
+  }
+  button.gen.sent{background:var(--ok); color:#08160f;}
+  .spinner{
+    width:13px; height:13px; border-radius:50%;
+    border:2px solid rgba(11,14,20,.35); border-top-color:#0b0e14;
+    animation:spin .7s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce){ .spinner{animation:none;} }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .how{
+    margin-top:44px;
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:12px;
+  }
+  .how .step{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:16px;
+  }
+  .how .num{
+    font-family:'Archivo', sans-serif; font-weight:800; font-size:12px;
+    color:var(--gold); background:var(--gold-soft);
+    width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom:10px;
+  }
+  .how p{margin:0; font-size:13px; color:var(--ink-soft); line-height:1.5;}
+  .how strong{display:block; color:var(--ink); font-size:13.5px; margin-bottom:3px;}
+
+  @media (max-width:760px){
+    .row{grid-template-columns:1fr; gap:9px;}
+    .row .status{order:3;}
+    .row button.gen{order:4;}
+    .how{grid-template-columns:1fr 1fr;}
+  }
+  @media (max-width:460px){
+    .how{grid-template-columns:1fr;}
+    .toolbar{flex-direction:column; align-items:stretch;}
+    .filters{flex-direction:column;}
+    .field input, .field select{width:100%;}
+  }
+</style>
+</head>
+<body>
+
+<div class="head-band">
+  <div class="head-inner">
+    <img src="assets/logo-alone.png" alt="Instituto ALONE" width="260" height="176">
+    <div>
+      <p class="eyebrow">Instituto ALONE</p>
+      <h1>Reportes de calificaciones</h1>
+      <p class="subtitle">Generación y envío automático por WhatsApp</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="banner">
+    <span>&#128712;</span>
+    <span><b>Vista previa con alumnos de ejemplo.</b> Cuando el Google Sheets de "Alumnos" y "Calificaciones" esté conectado, esta lista se llenará sola con tus alumnos reales.</span>
+  </div>
+
+  <div class="toolbar">
+    <h2>Alumnos</h2>
+    <div class="filters">
+      <div class="field">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.6" y2="16.6"></line></svg>
+        <input type="text" id="q" placeholder="Buscar alumno&hellip;" autocomplete="off">
+      </div>
+      <div class="field select-wrap">
+        <select id="fMod"><option value="all">Todos los módulos</option></select>
+      </div>
+      <div class="field select-wrap">
+        <select id="fCal">
+          <option value="all">Todas las calificaciones</option>
+          <option value="aprob">Aprobatoria (6–10)</option>
+          <option value="noaprob">No aprobatoria (&lt;6)</option>
+          <option value="np">NP · no presentó</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="roster" id="roster"></div>
+
+  <div class="how">
+    <div class="step">
+      <div class="num">1</div>
+      <strong>Se captura la calificación</strong>
+      <p>Alguien anota módulo y calificación del alumno en la pestaña "Calificaciones" del Sheet.</p>
+    </div>
+    <div class="step">
+      <div class="num">2</div>
+      <strong>Das clic en Generar</strong>
+      <p>Aquí mismo, junto al nombre del alumno que ya presentó su examen.</p>
+    </div>
+    <div class="step">
+      <div class="num">3</div>
+      <strong>Se arma y se envía</strong>
+      <p>n8n llena la plantilla con esos datos y la manda por WhatsApp al número guardado.</p>
+    </div>
+    <div class="step">
+      <div class="num">4</div>
+      <strong>Queda marcada</strong>
+      <p>La calificación se marca como reportada, para no enviarla dos veces.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const STUDENTS = [
+    { name:'Sofía Ramírez Tello',    wa:'52 33 1122 3344', items:[{m:14,c:8.5},{m:15,c:9}],                        outcome:'ok'       },
+    { name:'Jonathan Iván Delgado',  wa:'52 33 5566 7788', items:[{m:3,c:7},{m:4,c:6},{m:5,c:9},{m:6,c:8}],        outcome:'ok'       },
+    { name:'Ana Paola Guzmán Ley',   wa:'52 33 9900 1122', items:[{m:22,c:10}],                                    outcome:'ok'       },
+    { name:'Diego Hernández Cobos',  wa:'52 33 4455 6677', items:[],                                               outcome:'none'     },
+    { name:'Kevin Alexander Ruiz',   wa:null,              items:[{m:7,c:5},{m:8,c:'NP'},{m:9,c:6}],               outcome:'no-wa'    },
+    { name:'Valeria Núñez Preciado', wa:'52 33 2233 4455', items:[{m:1,c:6},{m:2,c:7},{m:3,c:5},{m:4,c:8},{m:5,c:9},{m:6,c:'NP'}], outcome:'too-many' },
+  ];
+
+  const roster = document.getElementById('roster');
+  const fMod = document.getElementById('fMod');
+  const fCal = document.getElementById('fCal');
+  const q = document.getElementById('q');
+
+  const allMods = Array.from(new Set(STUDENTS.flatMap(s => s.items.map(i => i.m)))).sort((a,b)=>a-b);
+  fMod.insertAdjacentHTML('beforeend', allMods.map(m => `<option value="${m}">Módulo ${m}</option>`).join(''));
+
+  function calClass(c){
+    if (c === 'NP') return 'noaprob-like';
+    return Number(c) >= 6 ? 'aprob' : 'noaprob';
+  }
+
+  function chipHTML(item){
+    const cls = calClass(item.c) === 'noaprob' || item.c === 'NP' ? 'low' : '';
+    return `<span class="chip ${cls}">Mód. ${item.m} · ${item.c}</span>`;
+  }
+
+  function rowHTML(s, i){
+    const items = s.items.length
+      ? s.items.map(chipHTML).join('')
+      : `<span class="chip none">al día</span>`;
+    const waLine = s.wa ? `<span class="wa">${s.wa}</span>` : `<span class="wa">Sin WhatsApp registrado</span>`;
+    const disabled = s.items.length === 0 ? 'disabled' : '';
+    return `
+      <div class="row" data-idx="${i}" data-name="${s.name.toLowerCase()}">
+        <div class="name">${s.name}${waLine}</div>
+        <div class="items">${items}</div>
+        <div class="status" data-status></div>
+        <button class="gen" data-btn ${disabled}>${s.items.length === 0 ? 'Sin pendientes' : 'Generar reporte'}</button>
+      </div>`;
+  }
+
+  roster.innerHTML = STUDENTS.map(rowHTML).join('');
+
+  function setStatus(row, cls, text){
+    const el = row.querySelector('[data-status]');
+    el.className = 'status' + (cls ? ' ' + cls : '');
+    el.innerHTML = cls ? `<span class="dot"></span>${text}` : text;
+  }
+
+  roster.querySelectorAll('.row').forEach(row => {
+    const s = STUDENTS[row.dataset.idx];
+    const btn = row.querySelector('[data-btn]');
+    if (s.items.length === 0) return;
+
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Enviando&hellip;';
+      setStatus(row, '', 'Contactando a n8n…');
+
+      setTimeout(() => {
+        if (s.outcome === 'ok'){
+          btn.classList.add('sent');
+          btn.disabled = false;
+          btn.textContent = 'Reenviar';
+          setStatus(row, 'ok', 'Enviado por WhatsApp · justo ahora');
+          row.querySelector('.items').innerHTML = `<span class="chip none">al día</span>`;
+        } else if (s.outcome === 'no-wa'){
+          btn.disabled = false;
+          btn.textContent = 'Generar reporte';
+          setStatus(row, 'err', 'Sin WhatsApp registrado en "Alumnos"');
+        } else if (s.outcome === 'too-many'){
+          btn.disabled = false;
+          btn.textContent = 'Generar reporte';
+          setStatus(row, 'err', 'Hay más de 5 calificaciones pendientes — revisa el Sheet');
+        }
+      }, 900);
+    });
+  });
+
+  function applyFilters(){
+    const term = q.value.trim().toLowerCase();
+    const mod = fMod.value;
+    const cal = fCal.value;
+    roster.querySelectorAll('.row').forEach(row => {
+      const s = STUDENTS[row.dataset.idx];
+      const nameOk = row.dataset.name.includes(term);
+      const modOk = mod === 'all' || s.items.some(i => String(i.m) === mod);
+      const calOk = cal === 'all' || s.items.some(i => {
+        if (cal === 'np') return i.c === 'NP';
+        if (cal === 'aprob') return i.c !== 'NP' && Number(i.c) >= 6;
+        if (cal === 'noaprob') return i.c !== 'NP' && Number(i.c) < 6;
+        return true;
+      });
+      row.classList.toggle('hidden', !(nameOk && modOk && calOk));
+    });
+  }
+
+  [q, fMod, fCal].forEach(el => el.addEventListener('input', applyFilters));
+</script>
+</body>
+</html>
